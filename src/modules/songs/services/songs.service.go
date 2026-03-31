@@ -114,7 +114,7 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 }
 
 func (s *SongsService) GetTrending() ([]dto.SongSearchResponse, error) {
-	url := "https://www.cifraclub.com.br/top/musicas/evangelico/"
+	url := "https://www.cifraclub.com.br/mais-tocadas/gospel-religioso/"
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
@@ -134,32 +134,42 @@ func (s *SongsService) GetTrending() ([]dto.SongSearchResponse, error) {
 	}
 
 	var songs []dto.SongSearchResponse
-	doc.Find(".top-list li").Each(func(i int, sel *goquery.Selection) {
-		if i >= 8 { // Limit to 8
+	doc.Find("ol.mais-tocadas-list li, .top-list li, .list-links li").Each(func(i int, sel *goquery.Selection) {
+		if i >= 12 { // Limit to 12
 			return
 		}
 
+		// Titles and Artists are often in different places depending on the specific layout version
 		title := sel.Find("b").Text()
 		artist := sel.Find("span").Text()
+		
+		// Some versions use .top-list-item-title etc.
+		if title == "" {
+			title = sel.Find(".mais-tocadas-song").Text()
+		}
+		if artist == "" {
+			artist = sel.Find(".mais-tocadas-artist").Text()
+		}
+
 		songUrl, _ := sel.Find("a").Attr("href")
 		imgUrl, _ := sel.Find("img").Attr("src")
 		
-		// If imgUrl is relative or missing
 		if imgUrl == "" {
 			imgUrl, _ = sel.Find("img").Attr("data-src")
 		}
 
-		// Ensure full URL
-		if !strings.HasPrefix(songUrl, "http") {
+		if !strings.HasPrefix(songUrl, "http") && songUrl != "" {
 			songUrl = "https://www.cifraclub.com.br" + songUrl
 		}
 
-		songs = append(songs, dto.SongSearchResponse{
-			Title:  strings.TrimSpace(title),
-			Artist: strings.TrimSpace(artist),
-			Url:    songUrl,
-			Image:  imgUrl,
-		})
+		if title != "" && artist != "" {
+			songs = append(songs, dto.SongSearchResponse{
+				Title:  strings.TrimSpace(title),
+				Artist: strings.TrimSpace(artist),
+				Url:    songUrl,
+				Image:  imgUrl,
+			})
+		}
 	})
 
 	return songs, nil
