@@ -1,0 +1,7 @@
+{
+  "welcome": "Bem-vindo ao Gost Framework!",
+  "errors": {
+    "unauthorized": "Você não tem autorização para acessar este recurso.",
+    "internal_error": "Ocorreu um erro interno no servidor."
+  }
+}
