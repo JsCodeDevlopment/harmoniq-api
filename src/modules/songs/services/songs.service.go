@@ -18,8 +18,9 @@ func NewSongsService() *SongsService {
 }
 
 func (s *SongsService) Search(query string) ([]dto.SongSearchResponse, error) {
-	// Using CifraClub's suggestion API which is faster and doesn't require JS rendering
-	url := fmt.Sprintf("https://www.cifraclub.com.br/api/search/suggestions/?q=%s", strings.ReplaceAll(query, " ", "+"))
+	// Using CifraClub's public Solr API which is what the website uses now
+	// Format: https://solr.sscdn.co/cc/c7/?q=QUERY&limit=10
+	url := fmt.Sprintf("https://solr.sscdn.co/cc/c7/?q=%s&limit=30", strings.ReplaceAll(query, " ", "+"))
 	
 	client := &http.Client{
 		Timeout: 10 * time.Second,
@@ -39,11 +40,15 @@ func (s *SongsService) Search(query string) ([]dto.SongSearchResponse, error) {
 	}
 
 	var apiRes struct {
-		Results []struct {
-			T string `json:"t"` // Title/Name
-			U string `json:"u"` // URL path
-			I string `json:"i"` // Type (artist, song)
-		} `json:"results"`
+		Response struct {
+			Docs []struct {
+				Txt  string `json:"txt"`  // Song Title
+				Art  string `json:"art"`  // Artist Name
+				Dns  string `json:"dns"`  // Artist Slug
+				Url  string `json:"url"`  // Song Slug
+				Tipo string `json:"tipo"` // Type (2 for song, 1 for artist)
+			} `json:"docs"`
+		} `json:"response"`
 	}
 
 	if err := json.NewDecoder(res.Body).Decode(&apiRes); err != nil {
@@ -51,13 +56,13 @@ func (s *SongsService) Search(query string) ([]dto.SongSearchResponse, error) {
 	}
 
 	var songs []dto.SongSearchResponse
-	for _, r := range apiRes.Results {
-		// We only want songs, but artists can be useful too. 
-		// For now, let's filter or prefix them.
-		if r.I == "song" {
+	for _, r := range apiRes.Response.Docs {
+		// tipo 2 is a song. tipo 1 is an artist which we skip for now.
+		if r.Tipo == "2" {
 			songs = append(songs, dto.SongSearchResponse{
-				Title: r.T,
-				Url:   "https://www.cifraclub.com.br" + r.U,
+				Title:  r.Txt,
+				Artist: r.Art,
+				Url:    fmt.Sprintf("https://www.cifraclub.com.br/%s/%s/", r.Dns, r.Url),
 			})
 		}
 	}
@@ -66,7 +71,14 @@ func (s *SongsService) Search(query string) ([]dto.SongSearchResponse, error) {
 }
 
 func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
-	res, err := http.Get(url)
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+
+	res, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
