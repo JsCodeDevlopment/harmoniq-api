@@ -112,3 +112,55 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 		Content: content,
 	}, nil
 }
+
+func (s *SongsService) GetTrending() ([]dto.SongSearchResponse, error) {
+	url := "https://www.cifraclub.com.br/top/musicas/evangelico/"
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	doc, err := goquery.NewDocumentFromReader(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var songs []dto.SongSearchResponse
+	doc.Find(".top-list li").Each(func(i int, sel *goquery.Selection) {
+		if i >= 8 { // Limit to 8
+			return
+		}
+
+		title := sel.Find("b").Text()
+		artist := sel.Find("span").Text()
+		songUrl, _ := sel.Find("a").Attr("href")
+		imgUrl, _ := sel.Find("img").Attr("src")
+		
+		// If imgUrl is relative or missing
+		if imgUrl == "" {
+			imgUrl, _ = sel.Find("img").Attr("data-src")
+		}
+
+		// Ensure full URL
+		if !strings.HasPrefix(songUrl, "http") {
+			songUrl = "https://www.cifraclub.com.br" + songUrl
+		}
+
+		songs = append(songs, dto.SongSearchResponse{
+			Title:  strings.TrimSpace(title),
+			Artist: strings.TrimSpace(artist),
+			Url:    songUrl,
+			Image:  imgUrl,
+		})
+	})
+
+	return songs, nil
+}

@@ -15,5 +15,6 @@ func InitModule(router *gin.RouterGroup) {
 	{
 		songsGroup.GET("/search", ctrl.Search)
 		songsGroup.GET("/song", ctrl.GetSong)
+		songsGroup.GET("/trending", ctrl.Trending)
 	}
 }

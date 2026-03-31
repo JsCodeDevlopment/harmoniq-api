@@ -48,3 +48,12 @@ func (c *SongsController) GetSong(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, song)
 }
+func (c *SongsController) Trending(ctx *gin.Context) {
+	results, err := c.songsService.GetTrending()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, results)
+}
