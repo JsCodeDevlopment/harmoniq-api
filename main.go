@@ -1,9 +1,9 @@
 package main
 
 import (
+	"api/src/app"
 	"log"
 	"os"
-	"api/src/app"
 )
 
 func main() {
@@ -19,4 +19,3 @@ func main() {
 		log.Fatalf("Could not start server: %v", err)
 	}
 }
-
