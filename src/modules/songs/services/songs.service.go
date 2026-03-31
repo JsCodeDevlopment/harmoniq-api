@@ -2,9 +2,11 @@ package services
 
 import (
 	"api/src/modules/songs/dto"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -16,9 +18,17 @@ func NewSongsService() *SongsService {
 }
 
 func (s *SongsService) Search(query string) ([]dto.SongSearchResponse, error) {
-	url := fmt.Sprintf("https://www.cifraclub.com.br/?q=%s", strings.ReplaceAll(query, " ", "+"))
+	// Using CifraClub's suggestion API which is faster and doesn't require JS rendering
+	url := fmt.Sprintf("https://www.cifraclub.com.br/api/search/suggestions/?q=%s", strings.ReplaceAll(query, " ", "+"))
 	
-	res, err := http.Get(url)
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+
+	res, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -28,26 +38,29 @@ func (s *SongsService) Search(query string) ([]dto.SongSearchResponse, error) {
 		return nil, fmt.Errorf("cifraclub returned status %d", res.StatusCode)
 	}
 
-	doc, err := goquery.NewDocumentFromReader(res.Body)
-	if err != nil {
+	var apiRes struct {
+		Results []struct {
+			T string `json:"t"` // Title/Name
+			U string `json:"u"` // URL path
+			I string `json:"i"` // Type (artist, song)
+		} `json:"results"`
+	}
+
+	if err := json.NewDecoder(res.Body).Decode(&apiRes); err != nil {
 		return nil, err
 	}
 
 	var songs []dto.SongSearchResponse
-	doc.Find(".gsc-result").Each(func(i int, s *goquery.Selection) {
-		title := s.Find(".gs-title").Text()
-		link, _ := s.Find(".gs-title a").Attr("href")
-		if title != "" && link != "" {
+	for _, r := range apiRes.Results {
+		// We only want songs, but artists can be useful too. 
+		// For now, let's filter or prefix them.
+		if r.I == "song" {
 			songs = append(songs, dto.SongSearchResponse{
-				Title: title,
-				Url:   link,
+				Title: r.T,
+				Url:   "https://www.cifraclub.com.br" + r.U,
 			})
 		}
-	})
-
-	// Alternative search if the above doesn't work (CifraClub uses GCS for search in some pages)
-	// But let's try to parse the direct results if available.
-	// Actually, cifraclub often has a list of results in a different format.
+	}
 	
 	return songs, nil
 }
