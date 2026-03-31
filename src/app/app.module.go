@@ -42,6 +42,13 @@ func Bootstrap() *gin.Engine {
 	router.Use(interceptors.LoggerInterceptor())
 	router.Use(filters.ErrorHandler())
 
+	router.GET("/", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "Harmoniq API is up and running!",
+			"version": "v1.0.0",
+		})
+	})
+
 	api := router.Group("/api/v1")
 
 	users.InitModule(api)
