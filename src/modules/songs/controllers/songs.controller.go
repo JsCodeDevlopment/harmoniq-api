@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"api/src/modules/songs/dto"
 	"api/src/modules/songs/services"
 	"net/http"
 
@@ -53,6 +54,10 @@ func (c *SongsController) Trending(ctx *gin.Context) {
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	if results == nil {
+		results = []dto.SongSearchResponse{}
 	}
 
 	ctx.JSON(http.StatusOK, results)
