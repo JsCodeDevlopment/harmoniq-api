@@ -1,0 +1,7 @@
+{
+  "welcome": "Welcome to Gost Framework!",
+  "errors": {
+    "unauthorized": "You are not authorized to access this resource.",
+    "internal_error": "An internal server error occurred."
+  }
+}
