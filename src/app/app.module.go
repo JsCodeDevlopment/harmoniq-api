@@ -2,7 +2,7 @@ package app
 
 import (
 	"log"
-	"os"
+
 
 	"api/src/common/filters"
 	"api/src/common/i18n"
@@ -18,7 +18,7 @@ import (
 	"golang.org/x/text/language"
 )
 
-func SetupApp() *gin.Engine {
+func Bootstrap() *gin.Engine {
 	config.LoadEnv()
 
 	config.ConnectDatabase()
@@ -52,16 +52,3 @@ func SetupApp() *gin.Engine {
 	return router
 }
 
-func Bootstrap() {
-	router := SetupApp()
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "3000"
-	}
-
-	log.Printf("Application is starting on port %s...", port)
-	if err := router.Run(":" + port); err != nil {
-		log.Fatalf("Could not start server: %v", err)
-	}
-}

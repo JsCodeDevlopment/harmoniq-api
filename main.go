@@ -1,9 +1,22 @@
 package main
 
 import (
+	"log"
+	"os"
 	"api/src/app"
 )
 
 func main() {
-	app.Bootstrap()
+	engine := app.Bootstrap()
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "3000"
+	}
+
+	log.Printf("Application is starting on port %s...", port)
+	if err := engine.Run(":" + port); err != nil {
+		log.Fatalf("Could not start server: %v", err)
+	}
 }
+
