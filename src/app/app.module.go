@@ -25,12 +25,13 @@ func Bootstrap() *gin.Engine {
 	config.ConnectRedis()
 
 	if err := i18n.Initialize("locales", language.English); err != nil {
-		log.Fatalf("Failed to initialize i18n: %v", err)
+		log.Printf("Warning: Failed to initialize i18n: %v (API will continue without translations)", err)
 	}
 
 	if err := i18n.InitValidator(); err != nil {
-		log.Fatalf("Failed to initialize validator i18n: %v", err)
+		log.Printf("Warning: Failed to initialize validator i18n: %v", err)
 	}
+
 
 	router := gin.Default()
 
