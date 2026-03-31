@@ -4,6 +4,7 @@ import (
 	"api/src/common/security"
 	"api/src/modules/users/dto"
 	"api/src/modules/users/entities"
+	"fmt"
 )
 
 type UserService interface {
@@ -12,6 +13,7 @@ type UserService interface {
 	FindById(id uint) (*entities.User, error)
 	FindByEmail(email string) (*entities.User, error)
 	Update(id uint, user *entities.User) error
+	ChangePassword(id uint, oldPassword, newPassword string) error
 	Delete(id uint) error
 	UpdateAvatar(id uint, avatarPath string) error
 }
@@ -57,8 +59,31 @@ func (s *userService) Update(id uint, user *entities.User) error {
 		return err
 	}
 
-	existing.Name = user.Name
-	existing.Email = user.Email
+	if user.Name != "" {
+		existing.Name = user.Name
+	}
+	if user.Email != "" {
+		existing.Email = user.Email
+	}
+	return s.repo.Update(existing)
+}
+
+func (s *userService) ChangePassword(id uint, oldPassword, newPassword string) error {
+	existing, err := s.FindById(id)
+	if err != nil {
+		return err
+	}
+
+	if !security.ComparePasswords(oldPassword, existing.Password) {
+		return fmt.Errorf("senha atual incorreta")
+	}
+
+	hashedPassword, err := security.HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+
+	existing.Password = hashedPassword
 	return s.repo.Update(existing)
 }
 

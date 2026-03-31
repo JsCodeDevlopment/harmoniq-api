@@ -17,6 +17,8 @@ func InitModule(router *gin.RouterGroup) {
 	usersGroup := router.Group("/users")
 	{
 		usersGroup.GET("/me", guards.JwtGuard(), controller.Me)
+		usersGroup.PUT("/me", guards.JwtGuard(), controller.Update)
+		usersGroup.PUT("/me/password", guards.JwtGuard(), controller.ChangePassword)
 		usersGroup.POST("", controller.Create)
 		usersGroup.GET("", controller.FindAll)
 		usersGroup.GET("/:id", controller.FindOne)

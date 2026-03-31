@@ -75,7 +75,8 @@ func (ctrl *UserController) FindOne(c *gin.Context) {
 }
 
 func (ctrl *UserController) Update(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
+	userID, _ := c.Get("user_id")
+	id := uint(userID.(float64))
 
 	var user entities.User
 	if err := c.ShouldBindJSON(&user); err != nil {
@@ -83,12 +84,30 @@ func (ctrl *UserController) Update(c *gin.Context) {
 		return
 	}
 
-	if err := ctrl.service.Update(uint(id), &user); err != nil {
+	if err := ctrl.service.Update(id, &user); err != nil {
 		c.Error(err)
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "User updated"})
+}
+
+func (ctrl *UserController) ChangePassword(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	id := uint(userID.(float64))
+
+	var body dto.ChangePasswordDto
+	if err := c.ShouldBindJSON(&body); err != nil {
+		utils.FormattedErrorGenerator(c, http.StatusBadRequest, "Bad Request", "Invalid request body")
+		return
+	}
+
+	if err := ctrl.service.ChangePassword(id, body.OldPassword, body.NewPassword); err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Password changed successfully"})
 }
 
 func (ctrl *UserController) Delete(c *gin.Context) {
