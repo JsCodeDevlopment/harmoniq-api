@@ -114,13 +114,17 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 }
 
 func (s *SongsService) GetTrending() ([]dto.SongSearchResponse, error) {
+	// Try multiple URLs if needed, but start with the most specific gospel one
 	url := "https://www.cifraclub.com.br/mais-tocadas/gospel-religioso/"
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
 
 	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+	// Modern real browser user agent to avoid being blocked
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7")
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -134,28 +138,57 @@ func (s *SongsService) GetTrending() ([]dto.SongSearchResponse, error) {
 	}
 
 	var songs []dto.SongSearchResponse
-	doc.Find("ol.mais-tocadas-list li, .top-list li, .list-links li").Each(func(i int, sel *goquery.Selection) {
-		if i >= 12 { // Limit to 12
+	
+	// Try multiple selectors that Cifra Club uses for their lists
+	selectors := []string{
+		"ol.mais-tocadas-list li",
+		".top-list li", 
+		".list-links li",
+		".top-list-item",
+		"tr.top-list-item",
+	}
+
+	var mainSelection *goquery.Selection
+	for _, selector := range selectors {
+		mainSelection = doc.Find(selector)
+		if mainSelection.Length() > 0 {
+			break
+		}
+	}
+
+	mainSelection.Each(func(i int, sel *goquery.Selection) {
+		if i >= 12 { // Limit to 12 for the hero UI
 			return
 		}
 
-		// Titles and Artists are often in different places depending on the specific layout version
+		// Try different title selectors
 		title := sel.Find("b").Text()
-		artist := sel.Find("span").Text()
-		
-		// Some versions use .top-list-item-title etc.
 		if title == "" {
 			title = sel.Find(".mais-tocadas-song").Text()
 		}
+		if title == "" {
+			title = sel.Find("a strong").Text()
+		}
+
+		// Try different artist selectors
+		artist := sel.Find("span").Text()
 		if artist == "" {
 			artist = sel.Find(".mais-tocadas-artist").Text()
+		}
+		if artist == "" {
+			artist = sel.Find("a span").Text()
 		}
 
 		songUrl, _ := sel.Find("a").Attr("href")
 		imgUrl, _ := sel.Find("img").Attr("src")
 		
-		if imgUrl == "" {
+		if imgUrl == "" || strings.Contains(imgUrl, "placeholder") {
 			imgUrl, _ = sel.Find("img").Attr("data-src")
+		}
+
+		// Cleaning up title if it contains rank numbers (common in Cifra Club)
+		if len(title) > 2 && title[:2] == fmt.Sprintf("%02d", i+1) {
+			title = title[2:]
 		}
 
 		if !strings.HasPrefix(songUrl, "http") && songUrl != "" {
