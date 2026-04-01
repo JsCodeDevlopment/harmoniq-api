@@ -65,6 +65,12 @@ func (s *userService) Update(id uint, user *entities.User) error {
 	if user.Email != "" {
 		existing.Email = user.Email
 	}
+	if user.FontSize != "" {
+		existing.FontSize = user.FontSize
+	}
+	if user.ChordColor != "" {
+		existing.ChordColor = user.ChordColor
+	}
 	return s.repo.Update(existing)
 }
 

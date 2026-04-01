@@ -16,4 +16,6 @@ type User struct {
 	Password  string         `json:"-" gorm:"column:password_hash"`
 	Role      string         `json:"role" gorm:"default:'user'"`
 	Avatar    string         `json:"avatar"`
+	FontSize  string         `json:"font_size" gorm:"default:'medium'"`
+	ChordColor string        `json:"chord_color" gorm:"default:'yellow'"`
 }
