@@ -3,7 +3,7 @@
 Backend de alto desempenho desenvolvido em **Go** para suportar a infraestrutura do ecossistema Harmoniq. Esta API é responsável pela gestão de usuários, persistência de repertórios e processamento dinâmico de cifras.
 
 <h1 align="center">
-  <img alt="Banner do Harmoniq API" title="#Banner" style="object-fit: cover; width: 100%; max-height: 520px" src="public/mockup.png" />
+  <img alt="Banner do Harmoniq API" title="#Banner" style="object-fit: cover; width: 100%; max-height: 520px" src="public/preview.webp" />
 </h1>
 
 ---
