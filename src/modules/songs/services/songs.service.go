@@ -21,7 +21,7 @@ func (s *SongsService) Search(query string) ([]dto.SongSearchResponse, error) {
 	// Using CifraClub's public Solr API which is what the website uses now
 	// Format: https://solr.sscdn.co/cc/c7/?q=QUERY&limit=10
 	url := fmt.Sprintf("https://solr.sscdn.co/cc/c7/?q=%s&limit=30", strings.ReplaceAll(query, " ", "+"))
-	
+
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
@@ -66,7 +66,7 @@ func (s *SongsService) Search(query string) ([]dto.SongSearchResponse, error) {
 			})
 		}
 	}
-	
+
 	return songs, nil
 }
 
@@ -96,9 +96,9 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 	title := doc.Find(".t1").Text()
 	artist := doc.Find(".t3").Text()
 	key := doc.Find("#cifra_tom a").Text()
-	
+
 	content, _ := doc.Find("pre").Html()
-	
+
 	var chords []string
 	doc.Find("#cifra_capo").NextAll().Find("b").Each(func(i int, s *goquery.Selection) {
 		chords = append(chords, s.Text())
@@ -138,70 +138,65 @@ func (s *SongsService) GetTrending() ([]dto.SongSearchResponse, error) {
 	}
 
 	var songs []dto.SongSearchResponse
-	
-	// Try multiple selectors that Cifra Club uses for their lists
-	selectors := []string{
-		"ol.mais-tocadas-list li",
-		".top-list li", 
-		".list-links li",
-		".top-list-item",
-		"tr.top-list-item",
-	}
 
-	var mainSelection *goquery.Selection
-	for _, selector := range selectors {
-		mainSelection = doc.Find(selector)
-		if mainSelection.Length() > 0 {
-			break
-		}
-	}
-
-	mainSelection.Each(func(i int, sel *goquery.Selection) {
-		if i >= 12 { // Limit to 12 for the hero UI
+	// Cifra Club relies heavily on generated css modules, .primaryLabel and .secondaryLabel are stable hooks
+	count := 0
+	doc.Find("li").Each(func(i int, sel *goquery.Selection) {
+		if count >= 12 { // Limit to 12 for the hero UI
 			return
 		}
 
-		// Try different title selectors
-		title := sel.Find("b").Text()
+		// Try to find the title using the new stable CSS classes
+		title := sel.Find(".primaryLabel span").First().Text()
+		if title == "" {
+			title = sel.Find(".primaryLabel").Text()
+		}
+
+		// Fallbacks for older layout versions
+		if title == "" {
+			title = sel.Find("b").Text()
+		}
 		if title == "" {
 			title = sel.Find(".mais-tocadas-song").Text()
 		}
-		if title == "" {
-			title = sel.Find("a strong").Text()
-		}
 
-		// Try different artist selectors
-		artist := sel.Find("span").Text()
+		artist := sel.Find(".secondaryLabel").Text()
+		if artist == "" {
+			artist = sel.Find("span").Text()
+		}
 		if artist == "" {
 			artist = sel.Find(".mais-tocadas-artist").Text()
-		}
-		if artist == "" {
-			artist = sel.Find("a span").Text()
 		}
 
 		songUrl, _ := sel.Find("a").Attr("href")
 		imgUrl, _ := sel.Find("img").Attr("src")
-		
+
 		if imgUrl == "" || strings.Contains(imgUrl, "placeholder") {
 			imgUrl, _ = sel.Find("img").Attr("data-src")
 		}
 
-		// Cleaning up title if it contains rank numbers (common in Cifra Club)
-		if len(title) > 2 && title[:2] == fmt.Sprintf("%02d", i+1) {
+		// Cleaning up title if it contains rank numbers (e.g. "01")
+		if len(title) > 2 && title[:2] == fmt.Sprintf("%02d", count+1) {
 			title = title[2:]
 		}
 
-		if !strings.HasPrefix(songUrl, "http") && songUrl != "" {
+		if !strings.HasPrefix(songUrl, "http") && songUrl != "" && !strings.HasPrefix(songUrl, "javascript") {
 			songUrl = "https://www.cifraclub.com.br" + songUrl
 		}
 
-		if title != "" && artist != "" {
+		if title != "" && artist != "" && songUrl != "" {
+			// Increase image resolution for better UI experience
+			if strings.Contains(imgUrl, "-tb2.jpg") {
+				imgUrl = strings.Replace(imgUrl, "-tb2.jpg", "-tb5.jpg", 1)
+			}
+
 			songs = append(songs, dto.SongSearchResponse{
 				Title:  strings.TrimSpace(title),
 				Artist: strings.TrimSpace(artist),
 				Url:    songUrl,
 				Image:  imgUrl,
 			})
+			count++
 		}
 	})
 
