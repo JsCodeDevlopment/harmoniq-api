@@ -18,6 +18,7 @@ type SetlistService interface {
 	Delete(id uint, userID uint) error
 	AddSong(setlistID uint, userID uint, title, artist, url, key string, order int) (*entities.SetlistItem, error)
 	RemoveSong(setlistID uint, userID uint, songID uint) error
+	UpdateSong(setlistID uint, userID uint, songID uint, key string, chordVariations string) (*entities.SetlistItem, error)
 }
 
 type SetlistController struct {
@@ -130,6 +131,27 @@ func (ctrl *SetlistController) RemoveSong(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Song removed from setlist"})
+}
+
+func (ctrl *SetlistController) UpdateSong(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Param("id"))
+	songID, _ := strconv.Atoi(c.Param("song_id"))
+	userID := getUserId(c)
+	var body struct {
+		Key             string `json:"key"`
+		ChordVariations string `json:"chord_variations"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		utils.FormattedErrorGenerator(c, http.StatusBadRequest, "Bad Request", "Invalid body")
+		return
+	}
+
+	song, err := ctrl.service.UpdateSong(uint(id), userID, uint(songID), body.Key, body.ChordVariations)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.JSON(http.StatusOK, song)
 }
 
 func (ctrl *SetlistController) FindShared(c *gin.Context) {

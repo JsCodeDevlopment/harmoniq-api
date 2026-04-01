@@ -26,7 +26,8 @@ type SetlistItem struct {
 	SetlistID uint           `json:"setlist_id"`
 	Title     string         `json:"title"`
 	Artist    string         `json:"artist"`
-	URL       string         `json:"url"`
-	Key       string         `json:"key"`
-	Order     int            `json:"order"`
+	URL             string         `json:"url"`
+	Key             string         `json:"key"`
+	Order           int            `json:"order"`
+	ChordVariations string         `json:"chord_variations"`
 }

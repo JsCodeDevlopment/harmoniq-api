@@ -56,3 +56,8 @@ func (r *SetlistRepository) AddSong(song *entities.SetlistItem) error {
 func (r *SetlistRepository) RemoveSong(id uint, setlistID uint) error {
 	return r.db.Where("id = ? AND setlist_id = ?", id, setlistID).Delete(&entities.SetlistItem{}).Error
 }
+
+func (r *SetlistRepository) UpdateSong(song *entities.SetlistItem) error {
+	return r.db.Save(song).Error
+}
+

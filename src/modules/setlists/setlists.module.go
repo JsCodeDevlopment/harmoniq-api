@@ -30,6 +30,7 @@ func InitModule(router *gin.RouterGroup) {
 			
 			protected.POST("/:id/songs", controller.AddSong)
 			protected.DELETE("/:id/songs/:song_id", controller.RemoveSong)
+			protected.PATCH("/:id/songs/:song_id", controller.UpdateSong)
 		}
 
 		// Public routes

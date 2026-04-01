@@ -16,6 +16,7 @@ type SetlistRepository interface {
 	Delete(id uint, userID uint) error
 	AddSong(song *entities.SetlistItem) error
 	RemoveSong(id uint, setlistID uint) error
+	UpdateSong(song *entities.SetlistItem) error
 }
 
 type SetlistService struct {
@@ -95,6 +96,33 @@ func (s *SetlistService) RemoveSong(setlistID uint, userID uint, songID uint) er
 		return fmt.Errorf("setlist not found or access denied")
 	}
 	return s.repository.RemoveSong(songID, setlistID)
+}
+
+func (s *SetlistService) UpdateSong(setlistID uint, userID uint, songID uint, key string, chordVariations string) (*entities.SetlistItem, error) {
+	setlist, err := s.repository.FindOne(setlistID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("setlist not found or access denied")
+	}
+
+	var targetSong *entities.SetlistItem
+	for i, song := range setlist.Songs {
+		if song.ID == songID {
+			targetSong = &setlist.Songs[i]
+			break
+		}
+	}
+
+	if targetSong == nil {
+		return nil, fmt.Errorf("song not found in setlist")
+	}
+
+	targetSong.Key = key
+	targetSong.ChordVariations = chordVariations
+
+	if err := s.repository.UpdateSong(targetSong); err != nil {
+		return nil, err
+	}
+	return targetSong, nil
 }
 
 func generateRandomHex(n int) (string, error) {
