@@ -98,7 +98,7 @@ func (s *SetlistService) RemoveSong(setlistID uint, userID uint, songID uint) er
 	return s.repository.RemoveSong(songID, setlistID)
 }
 
-func (s *SetlistService) UpdateSong(setlistID uint, userID uint, songID uint, key string, chordVariations string) (*entities.SetlistItem, error) {
+func (s *SetlistService) UpdateSong(setlistID uint, userID uint, songID uint, key string, url string, chordVariations string) (*entities.SetlistItem, error) {
 	setlist, err := s.repository.FindOne(setlistID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("setlist not found or access denied")
@@ -116,8 +116,15 @@ func (s *SetlistService) UpdateSong(setlistID uint, userID uint, songID uint, ke
 		return nil, fmt.Errorf("song not found in setlist")
 	}
 
-	targetSong.Key = key
-	targetSong.ChordVariations = chordVariations
+	if key != "" {
+		targetSong.Key = key
+	}
+	if url != "" {
+		targetSong.URL = url
+	}
+	if chordVariations != "" {
+		targetSong.ChordVariations = chordVariations
+	}
 
 	if err := s.repository.UpdateSong(targetSong); err != nil {
 		return nil, err
