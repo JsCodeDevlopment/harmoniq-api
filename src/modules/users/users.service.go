@@ -71,6 +71,9 @@ func (s *userService) Update(id uint, user *entities.User) error {
 	if user.ChordColor != "" {
 		existing.ChordColor = user.ChordColor
 	}
+	if user.Instrument != "" {
+		existing.Instrument = user.Instrument
+	}
 	return s.repo.Update(existing)
 }
 

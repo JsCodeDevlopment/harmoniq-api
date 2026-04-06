@@ -15,4 +15,5 @@ type SongDetailResponse struct {
 	Content       string   `json:"content"`
 	SimplifiedUrl string   `json:"simplified_url,omitempty"`
 	PrincipalUrl  string   `json:"principal_url,omitempty"`
+	KeyboardUrl   string   `json:"keyboard_url,omitempty"`
 }

@@ -104,24 +104,48 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 		chords = append(chords, s.Text())
 	})
 
-	var simplifiedUrl, principalUrl string
+	var simplifiedUrl, principalUrl, keyboardUrl string
 	if strings.Contains(url, "/simplificada.html") {
 		simplifiedUrl = url
 		principalUrl = strings.Replace(url, "/simplificada.html", "/", 1)
+	} else if strings.Contains(url, "/teclado.html") {
+		keyboardUrl = url
+		principalUrl = strings.Replace(url, "/teclado.html", "/", 1)
 	} else {
 		principalUrl = url
-		// Try to find simplified version link in the page
+		// Try to find simplified and keyboard version links in the page
 		doc.Find("a").Each(func(i int, s *goquery.Selection) {
 			href, exists := s.Attr("href")
-			if exists && (strings.HasSuffix(href, "/simplificada.html") || strings.Contains(s.Text(), "Simplificada")) {
+			if !exists {
+				return
+			}
+
+			if strings.HasSuffix(href, "/simplificada.html") || strings.Contains(s.Text(), "Simplificada") {
 				if !strings.HasPrefix(href, "http") {
 					simplifiedUrl = "https://www.cifraclub.com.br" + href
 				} else {
 					simplifiedUrl = href
 				}
-				return
+			}
+
+			if strings.HasSuffix(href, "/teclado.html") || strings.Contains(s.Text(), "Teclado") {
+				if !strings.HasPrefix(href, "http") {
+					keyboardUrl = "https://www.cifraclub.com.br" + href
+				} else {
+					keyboardUrl = href
+				}
 			}
 		})
+	}
+
+	if simplifiedUrl == "" && principalUrl != "" {
+		// Heuristic fallback if link not found in text
+		simplifiedUrl = principalUrl + "simplificada.html"
+	}
+	
+	if keyboardUrl == "" && principalUrl != "" {
+		// Heuristic fallback
+		keyboardUrl = principalUrl + "teclado.html"
 	}
 
 	return &dto.SongDetailResponse{
@@ -132,6 +156,7 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 		Content:       content,
 		SimplifiedUrl: simplifiedUrl,
 		PrincipalUrl:  principalUrl,
+		KeyboardUrl:   keyboardUrl,
 	}, nil
 }
 

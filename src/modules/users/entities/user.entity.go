@@ -18,4 +18,5 @@ type User struct {
 	Avatar    string         `json:"avatar"`
 	FontSize  string         `json:"font_size" gorm:"default:'medium'"`
 	ChordColor string        `json:"chord_color" gorm:"default:'yellow'"`
+	Instrument string        `json:"instrument" gorm:"default:'guitar'"`
 }
