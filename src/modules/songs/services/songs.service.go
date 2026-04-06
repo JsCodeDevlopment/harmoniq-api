@@ -104,12 +104,34 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 		chords = append(chords, s.Text())
 	})
 
+	var simplifiedUrl, principalUrl string
+	if strings.Contains(url, "/simplificada.html") {
+		simplifiedUrl = url
+		principalUrl = strings.Replace(url, "/simplificada.html", "/", 1)
+	} else {
+		principalUrl = url
+		// Try to find simplified version link in the page
+		doc.Find("a").Each(func(i int, s *goquery.Selection) {
+			href, exists := s.Attr("href")
+			if exists && (strings.HasSuffix(href, "/simplificada.html") || strings.Contains(s.Text(), "Simplificada")) {
+				if !strings.HasPrefix(href, "http") {
+					simplifiedUrl = "https://www.cifraclub.com.br" + href
+				} else {
+					simplifiedUrl = href
+				}
+				return
+			}
+		})
+	}
+
 	return &dto.SongDetailResponse{
-		Title:   strings.TrimSpace(title),
-		Artist:  strings.TrimSpace(artist),
-		Key:     strings.TrimSpace(key),
-		Chords:  chords,
-		Content: content,
+		Title:         strings.TrimSpace(title),
+		Artist:        strings.TrimSpace(artist),
+		Key:           strings.TrimSpace(key),
+		Chords:        chords,
+		Content:       content,
+		SimplifiedUrl: simplifiedUrl,
+		PrincipalUrl:  principalUrl,
 	}, nil
 }
 
