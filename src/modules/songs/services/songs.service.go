@@ -148,6 +148,13 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 		keyboardUrl = principalUrl + "teclado.html"
 	}
 
+	// Scrape Artist Image
+	artistImage, _ := doc.Find(".header-nav nav a img").Attr("src")
+	if artistImage == "" {
+		// Fallback for different layouts
+		artistImage, _ = doc.Find(".t3 a img").Attr("src")
+	}
+
 	var recommendations []dto.SongSearchResponse
 	// Strategy 1: Popular songs from the same artist
 	doc.Find(".art_musics li").Each(func(i int, s *goquery.Selection) {
@@ -168,6 +175,7 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 				Title:  strings.TrimSpace(songTitle),
 				Artist: strings.TrimSpace(artist),
 				Url:    href,
+				Image:  artistImage, // Use artist's profile pic as it looks better than a generic icon
 			})
 		}
 	})
@@ -181,6 +189,10 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 		artistName := s.Find("span").First().Text()
 		href, _ := s.Attr("href")
 		img, _ := s.Find("img").Attr("src")
+
+		if img == "" || strings.Contains(img, "placeholder") {
+			img, _ = s.Find("img").Attr("data-src")
+		}
 
 		if title != "" && href != "" {
 			if !strings.HasPrefix(href, "http") {
@@ -207,6 +219,7 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 		Recommendations: recommendations,
 	}, nil
 }
+
 
 
 
