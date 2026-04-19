@@ -148,17 +148,67 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 		keyboardUrl = principalUrl + "teclado.html"
 	}
 
+	var recommendations []dto.SongSearchResponse
+	// Strategy 1: Popular songs from the same artist
+	doc.Find(".art_musics li").Each(func(i int, s *goquery.Selection) {
+		if len(recommendations) >= 6 {
+			return
+		}
+		link := s.Find("a")
+		songTitle := link.Find("div div div").Text()
+		if songTitle == "" {
+			songTitle = link.Text()
+		}
+		href, _ := link.Attr("href")
+		if songTitle != "" && href != "" {
+			if !strings.HasPrefix(href, "http") {
+				href = "https://www.cifraclub.com.br" + href
+			}
+			recommendations = append(recommendations, dto.SongSearchResponse{
+				Title:  strings.TrimSpace(songTitle),
+				Artist: strings.TrimSpace(artist),
+				Url:    href,
+			})
+		}
+	})
+
+	// Strategy 2: "Toque também" (Related songs)
+	doc.Find(".related-songs li a").Each(func(i int, s *goquery.Selection) {
+		if len(recommendations) >= 12 {
+			return
+		}
+		title := s.Find("strong").Text()
+		artistName := s.Find("span").First().Text()
+		href, _ := s.Attr("href")
+		img, _ := s.Find("img").Attr("src")
+
+		if title != "" && href != "" {
+			if !strings.HasPrefix(href, "http") {
+				href = "https://www.cifraclub.com.br" + href
+			}
+			recommendations = append(recommendations, dto.SongSearchResponse{
+				Title:  strings.TrimSpace(title),
+				Artist: strings.TrimSpace(artistName),
+				Url:    href,
+				Image:  img,
+			})
+		}
+	})
+
 	return &dto.SongDetailResponse{
-		Title:         strings.TrimSpace(title),
-		Artist:        strings.TrimSpace(artist),
-		Key:           strings.TrimSpace(key),
-		Chords:        chords,
-		Content:       content,
-		SimplifiedUrl: simplifiedUrl,
-		PrincipalUrl:  principalUrl,
-		KeyboardUrl:   keyboardUrl,
+		Title:           strings.TrimSpace(title),
+		Artist:          strings.TrimSpace(artist),
+		Key:             strings.TrimSpace(key),
+		Chords:          chords,
+		Content:         content,
+		SimplifiedUrl:   simplifiedUrl,
+		PrincipalUrl:    principalUrl,
+		KeyboardUrl:     keyboardUrl,
+		Recommendations: recommendations,
 	}, nil
 }
+
+
 
 func (s *SongsService) GetTrending() ([]dto.SongSearchResponse, error) {
 	// Try multiple URLs if needed, but start with the most specific gospel one
