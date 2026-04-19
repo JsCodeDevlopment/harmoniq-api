@@ -156,33 +156,9 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 	}
 
 	var recommendations []dto.SongSearchResponse
-	// Strategy 1: Popular songs from the same artist
-	doc.Find(".art_musics li").Each(func(i int, s *goquery.Selection) {
-		if len(recommendations) >= 6 {
-			return
-		}
-		link := s.Find("a")
-		songTitle := link.Find("div div div").Text()
-		if songTitle == "" {
-			songTitle = link.Text()
-		}
-		href, _ := link.Attr("href")
-		if songTitle != "" && href != "" {
-			if !strings.HasPrefix(href, "http") {
-				href = "https://www.cifraclub.com.br" + href
-			}
-			recommendations = append(recommendations, dto.SongSearchResponse{
-				Title:  strings.TrimSpace(songTitle),
-				Artist: strings.TrimSpace(artist),
-				Url:    href,
-				Image:  artistImage, // Use artist's profile pic as it looks better than a generic icon
-			})
-		}
-	})
-
-	// Strategy 2: "Toque também" (Related songs)
+	// Strategy 1: "Toque também" (Related songs)
 	doc.Find(".related-songs li a").Each(func(i int, s *goquery.Selection) {
-		if len(recommendations) >= 12 {
+		if len(recommendations) >= 9 {
 			return
 		}
 		title := s.Find("strong").Text()
@@ -206,6 +182,33 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 			})
 		}
 	})
+
+	// Strategy 2: Popular songs from the same artist (as fallback/additional)
+	if len(recommendations) < 12 {
+		doc.Find(".art_musics li").Each(func(i int, s *goquery.Selection) {
+			if len(recommendations) >= 12 {
+				return
+			}
+			link := s.Find("a")
+			songTitle := link.Find("div div div").Text()
+			if songTitle == "" {
+				songTitle = link.Text()
+			}
+			href, _ := link.Attr("href")
+			if songTitle != "" && href != "" {
+				if !strings.HasPrefix(href, "http") {
+					href = "https://www.cifraclub.com.br" + href
+				}
+				recommendations = append(recommendations, dto.SongSearchResponse{
+					Title:  strings.TrimSpace(songTitle),
+					Artist: strings.TrimSpace(artist),
+					Url:    href,
+					Image:  artistImage,
+				})
+			}
+		})
+	}
+
 
 	return &dto.SongDetailResponse{
 		Title:           strings.TrimSpace(title),
