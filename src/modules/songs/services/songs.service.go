@@ -142,7 +142,7 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 		// Heuristic fallback if link not found in text
 		simplifiedUrl = principalUrl + "simplificada.html"
 	}
-	
+
 	if keyboardUrl == "" && principalUrl != "" {
 		// Heuristic fallback
 		keyboardUrl = principalUrl + "teclado.html"
@@ -151,40 +151,96 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 	// Scrape Artist Image
 	artistImage, _ := doc.Find(".header-nav nav a img").Attr("src")
 	if artistImage == "" {
-		// Fallback for different layouts
 		artistImage, _ = doc.Find(".t3 a img").Attr("src")
+	}
+	if artistImage == "" {
+		artistImage, _ = doc.Find(".header-artist-img img").Attr("src")
+	}
+	if artistImage == "" {
+		// Try to find any image that looks like an artist profile in the top section
+		artistImage, _ = doc.Find("img[alt='" + artist + "']").Attr("src")
 	}
 
 	var recommendations []dto.SongSearchResponse
 	// Strategy 1: "Toque também" (Related songs)
-	doc.Find(".related-songs li a").Each(func(i int, s *goquery.Selection) {
-		if len(recommendations) >= 9 {
+	// Using classes from Cifra Club's modern layout as shown in DevTools
+	doc.Find(".playToo-listItem, .js-side-related a, .related-songs a, .cifra-footer-related a").Each(func(i int, s *goquery.Selection) {
+		if len(recommendations) >= 12 {
 			return
 		}
-		title := s.Find("strong").Text()
-		artistName := s.Find("span").First().Text()
-		href, _ := s.Attr("href")
-		img, _ := s.Find("img").Attr("src")
 
-		if img == "" || strings.Contains(img, "placeholder") {
-			img, _ = s.Find("img").Attr("data-src")
+		// Handle both the specific classes and generic fallbacks
+		title := s.Find(".playToo--primaryText").Text()
+		if title == "" {
+			title = s.Find("strong").Text()
+		}
+		if title == "" {
+			title = s.Find("b").Text()
+		}
+
+		artistName := s.Find(".playToo--secondaryText").Text()
+		if artistName == "" {
+			artistName = s.Find("span").First().Text()
+		}
+
+		href := ""
+		if s.Is("a") {
+			href, _ = s.Attr("href")
+		} else {
+			href, _ = s.Find("a").Attr("href")
+		}
+
+		// Image extraction
+		img := ""
+		imgSel := s.Find(".playToo--artistImage img")
+		if imgSel.Length() > 0 {
+			img, _ = imgSel.Attr("src")
+		} else {
+			// Check if it's in a data-src or a regular img inside the item
+			imgSel = s.Find("img")
+			img, _ = imgSel.Attr("src")
+			if img == "" || strings.Contains(img, "placeholder") {
+				img, _ = imgSel.Attr("data-src")
+			}
+		}
+
+		// Special case for the thumb layout in screenshot: image might be in a background-image or child
+		if img == "" {
+			img, _ = s.Find(".thumb").Attr("data-src")
 		}
 
 		if title != "" && href != "" {
-			if !strings.HasPrefix(href, "http") {
-				href = "https://www.cifraclub.com.br" + href
+			// Avoid duplicates
+			isDuplicate := false
+			for _, r := range recommendations {
+				if r.Title == title && r.Artist == artistName {
+					isDuplicate = true
+					break
+				}
 			}
-			recommendations = append(recommendations, dto.SongSearchResponse{
-				Title:  strings.TrimSpace(title),
-				Artist: strings.TrimSpace(artistName),
-				Url:    href,
-				Image:  img,
-			})
+
+			if !isDuplicate {
+				if !strings.HasPrefix(href, "http") {
+					href = "https://www.cifraclub.com.br" + href
+				}
+
+				// Ensure we have a high quality image if possible
+				if strings.Contains(img, "-tb2.jpg") {
+					img = strings.Replace(img, "-tb2.jpg", "-tb5.jpg", 1)
+				}
+
+				recommendations = append(recommendations, dto.SongSearchResponse{
+					Title:  strings.TrimSpace(title),
+					Artist: strings.TrimSpace(artistName),
+					Url:    href,
+					Image:  img,
+				})
+			}
 		}
 	})
 
-	// Strategy 2: Popular songs from the same artist (as fallback/additional)
-	if len(recommendations) < 12 {
+	// Strategy 2: Popular songs from the same artist (fallback)
+	if len(recommendations) < 4 {
 		doc.Find(".art_musics li").Each(func(i int, s *goquery.Selection) {
 			if len(recommendations) >= 12 {
 				return
@@ -192,13 +248,23 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 			link := s.Find("a")
 			songTitle := link.Find("div div div").Text()
 			if songTitle == "" {
+				songTitle = link.Find("span").First().Text()
+			}
+			if songTitle == "" {
 				songTitle = link.Text()
 			}
+
 			href, _ := link.Attr("href")
 			if songTitle != "" && href != "" {
 				if !strings.HasPrefix(href, "http") {
 					href = "https://www.cifraclub.com.br" + href
 				}
+
+				// Avoid adding current song as recommendation
+				if strings.Contains(href, url) || strings.Contains(url, href) {
+					return
+				}
+
 				recommendations = append(recommendations, dto.SongSearchResponse{
 					Title:  strings.TrimSpace(songTitle),
 					Artist: strings.TrimSpace(artist),
@@ -208,7 +274,6 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 			}
 		})
 	}
-
 
 	return &dto.SongDetailResponse{
 		Title:           strings.TrimSpace(title),
@@ -222,9 +287,6 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 		Recommendations: recommendations,
 	}, nil
 }
-
-
-
 
 func (s *SongsService) GetTrending() ([]dto.SongSearchResponse, error) {
 	// Try multiple URLs if needed, but start with the most specific gospel one
