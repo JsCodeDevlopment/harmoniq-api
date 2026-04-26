@@ -104,48 +104,121 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 		chords = append(chords, s.Text())
 	})
 
+	var versions []dto.SongVersion
 	var simplifiedUrl, principalUrl, keyboardUrl string
-	if strings.Contains(url, "/simplificada.html") {
-		simplifiedUrl = url
-		principalUrl = strings.Replace(url, "/simplificada.html", "/", 1)
-	} else if strings.Contains(url, "/teclado.html") {
-		keyboardUrl = url
-		principalUrl = strings.Replace(url, "/teclado.html", "/", 1)
-	} else {
-		principalUrl = url
-		// Try to find simplified and keyboard version links in the page
-		doc.Find("a").Each(func(i int, s *goquery.Selection) {
-			href, exists := s.Attr("href")
-			if !exists {
-				return
+
+	// Extract versions from the page
+	doc.Find("a").Each(func(i int, s *goquery.Selection) {
+		href, exists := s.Attr("href")
+		if !exists || href == "" || strings.HasPrefix(href, "javascript") || strings.Contains(href, "academy") {
+			return
+		}
+
+		// Normalize URL
+		fullUrl := href
+		if !strings.HasPrefix(href, "http") {
+			fullUrl = "https://www.cifraclub.com.br" + href
+		}
+
+		// Check if it's a version link (contains the song path and ends with .html or /)
+		// We can use the current URL to determine the song path
+		songPath := strings.TrimSuffix(url, "/")
+		songPath = strings.TrimSuffix(songPath, ".html")
+		// Get the artist/song part
+		parts := strings.Split(strings.TrimPrefix(songPath, "https://www.cifraclub.com.br/"), "/")
+		if len(parts) < 2 {
+			return
+		}
+		basePath := "/" + parts[0] + "/" + parts[1] + "/"
+
+		if strings.Contains(fullUrl, basePath) {
+			name := strings.TrimSpace(s.Text())
+			if name == "" {
+				name, _ = s.Attr("title")
 			}
 
-			if strings.HasSuffix(href, "/simplificada.html") || strings.Contains(s.Text(), "Simplificada") {
-				if !strings.HasPrefix(href, "http") {
-					simplifiedUrl = "https://www.cifraclub.com.br" + href
-				} else {
-					simplifiedUrl = href
+			// Clean up name
+			if strings.Contains(name, "Cifra:") {
+				name = strings.TrimSpace(strings.Replace(name, "Cifra:", "", 1))
+			}
+
+			// Categorize and add if it looks like a version name
+			isVersion := false
+			if strings.HasSuffix(fullUrl, basePath) || strings.HasSuffix(fullUrl, basePath+"index.html") {
+				isVersion = true
+				if name == "" {
+					name = "Principal"
+				}
+				principalUrl = fullUrl
+			} else if strings.HasSuffix(fullUrl, "/simplificada.html") || strings.Contains(name, "Simplificada") {
+				isVersion = true
+				if name == "" {
+					name = "Simplificada"
+				}
+				simplifiedUrl = fullUrl
+			} else if strings.HasSuffix(fullUrl, "/teclado.html") || strings.Contains(name, "Teclado") {
+				isVersion = true
+				if name == "" {
+					name = "Teclado"
+				}
+				keyboardUrl = fullUrl
+			} else if strings.Contains(fullUrl, "versao-") {
+				isVersion = true
+				if name == "" {
+					// Extract version number from URL
+					vParts := strings.Split(fullUrl, "versao-")
+					if len(vParts) > 1 {
+						vNum := strings.TrimSuffix(vParts[1], ".html")
+						name = "Versão " + vNum
+					}
 				}
 			}
 
-			if strings.HasSuffix(href, "/teclado.html") || strings.Contains(s.Text(), "Teclado") {
-				if !strings.HasPrefix(href, "http") {
-					keyboardUrl = "https://www.cifraclub.com.br" + href
-				} else {
-					keyboardUrl = href
+			if isVersion && name != "" {
+				// Avoid duplicates
+				exists := false
+				for _, v := range versions {
+					if v.Url == fullUrl || v.Name == name {
+						exists = true
+						break
+					}
+				}
+				if !exists {
+					versions = append(versions, dto.SongVersion{
+						Name: name,
+						Url:  fullUrl,
+					})
 				}
 			}
-		})
+		}
+	})
+
+	// Heuristic fallbacks if not found in links
+	if principalUrl == "" {
+		// Try to construct it from current URL
+		parts := strings.Split(strings.TrimPrefix(url, "https://www.cifraclub.com.br/"), "/")
+		if len(parts) >= 2 {
+			principalUrl = "https://www.cifraclub.com.br/" + parts[0] + "/" + parts[1] + "/"
+		}
 	}
 
 	if simplifiedUrl == "" && principalUrl != "" {
-		// Heuristic fallback if link not found in text
 		simplifiedUrl = principalUrl + "simplificada.html"
 	}
-
 	if keyboardUrl == "" && principalUrl != "" {
-		// Heuristic fallback
 		keyboardUrl = principalUrl + "teclado.html"
+	}
+
+	// Ensure Principal is in the list
+	foundPrincipal := false
+	for _, v := range versions {
+		if v.Name == "Principal" {
+			foundPrincipal = true
+			break
+		}
+	}
+	if !foundPrincipal && principalUrl != "" {
+		versions = append([]dto.SongVersion{{Name: "Principal", Url: principalUrl}}, versions...)
 	}
 
 	// Scrape Artist Image
@@ -284,6 +357,7 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 		SimplifiedUrl:   simplifiedUrl,
 		PrincipalUrl:    principalUrl,
 		KeyboardUrl:     keyboardUrl,
+		Versions:        versions,
 		Recommendations: recommendations,
 	}, nil
 }

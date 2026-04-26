@@ -7,6 +7,11 @@ type SongSearchResponse struct {
 	Image  string `json:"image"`
 }
 
+type SongVersion struct {
+	Name string `json:"name"`
+	Url  string `json:"url"`
+}
+
 type SongDetailResponse struct {
 	Title           string               `json:"title"`
 	Artist          string               `json:"artist"`
@@ -16,6 +21,7 @@ type SongDetailResponse struct {
 	SimplifiedUrl   string               `json:"simplified_url,omitempty"`
 	PrincipalUrl    string               `json:"principal_url,omitempty"`
 	KeyboardUrl     string               `json:"keyboard_url,omitempty"`
+	Versions        []SongVersion        `json:"versions"`
 	Recommendations []SongSearchResponse `json:"recommendations"`
 }
 
