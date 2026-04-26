@@ -22,6 +22,7 @@ type SongDetailResponse struct {
 	PrincipalUrl    string               `json:"principal_url,omitempty"`
 	KeyboardUrl     string               `json:"keyboard_url,omitempty"`
 	Versions        []SongVersion        `json:"versions"`
+	Image           string               `json:"image,omitempty"`
 	Recommendations []SongSearchResponse `json:"recommendations"`
 }
 

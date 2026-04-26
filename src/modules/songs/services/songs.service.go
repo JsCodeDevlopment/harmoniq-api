@@ -98,6 +98,14 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 	key := doc.Find("#cifra_tom a").Text()
 
 	content, _ := doc.Find("pre").Html()
+	artistImage, _ := doc.Find("#js-artist-img").Attr("src")
+	if artistImage == "" {
+		artistImage, _ = doc.Find(".header-image img").Attr("src")
+	}
+	if artistImage == "" {
+		// Fallback for some versions
+		artistImage, _ = doc.Find(".t3 a img").Attr("src")
+	}
 
 	var chords []string
 	doc.Find("#cifra_capo").NextAll().Find("b").Each(func(i int, s *goquery.Selection) {
@@ -139,7 +147,8 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 			} else if span := s.Find("span").First(); span.Length() > 0 {
 				name = strings.TrimSpace(span.Text())
 			} else {
-				name = strings.TrimSpace(s.Text())
+				// If no strong/span, take the first child node's text to avoid concatenated metadata in <a>
+				name = strings.TrimSpace(s.Contents().First().Text())
 			}
 
 			// Clean up and normalize
@@ -148,8 +157,8 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 			}
 
 			// Further cleanup if it still contains metadata (heuristic)
-			// If name contains common metadata markers, truncate it
-			for _, marker := range []string{"Básico", "Intermediário", "Avançado", "exibições"} {
+			// Split at common markers to remove difficulty, views, etc.
+			for _, marker := range []string{"Básico", "Intermediário", "Avançado", "exibições", "views"} {
 				if idx := strings.Index(name, marker); idx != -1 {
 					name = strings.TrimSpace(name[:idx])
 					break
@@ -172,12 +181,12 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 				keyboardUrl = fullUrl
 			} else if strings.Contains(fullUrl, "versao-") || strings.Contains(strings.ToLower(name), "versao") {
 				isVersion = true
-				// Normalize name to "Versão X"
+				// Normalize name to "Versao-X" to match Cifra Club exactly
 				if strings.Contains(fullUrl, "versao-") {
 					vParts := strings.Split(fullUrl, "versao-")
 					if len(vParts) > 1 {
 						vNum := strings.TrimSuffix(vParts[1], ".html")
-						name = "Versão " + vNum
+						name = "Versao-" + vNum
 					}
 				}
 			}
@@ -230,7 +239,7 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 	}
 
 	// Scrape Artist Image
-	artistImage, _ := doc.Find(".header-nav nav a img").Attr("src")
+	artistImage, _ = doc.Find(".header-nav nav a img").Attr("src")
 	if artistImage == "" {
 		artistImage, _ = doc.Find(".t3 a img").Attr("src")
 	}
@@ -366,6 +375,7 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 		PrincipalUrl:    principalUrl,
 		KeyboardUrl:     keyboardUrl,
 		Versions:        versions,
+		Image:           artistImage,
 		Recommendations: recommendations,
 	}, nil
 }
