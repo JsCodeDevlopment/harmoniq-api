@@ -132,40 +132,48 @@ func (s *SongsService) GetSong(url string) (*dto.SongDetailResponse, error) {
 		basePath := "/" + parts[0] + "/" + parts[1] + "/"
 
 		if strings.Contains(fullUrl, basePath) {
-			name := strings.TrimSpace(s.Text())
-			if name == "" {
-				name, _ = s.Attr("title")
+			name := ""
+			// Try to find the name in a strong tag or first span, or just the first text node
+			if strong := s.Find("strong"); strong.Length() > 0 {
+				name = strings.TrimSpace(strong.Text())
+			} else if span := s.Find("span").First(); span.Length() > 0 {
+				name = strings.TrimSpace(span.Text())
+			} else {
+				name = strings.TrimSpace(s.Text())
 			}
 
-			// Clean up name
+			// Clean up and normalize
 			if strings.Contains(name, "Cifra:") {
 				name = strings.TrimSpace(strings.Replace(name, "Cifra:", "", 1))
+			}
+
+			// Further cleanup if it still contains metadata (heuristic)
+			// If name contains common metadata markers, truncate it
+			for _, marker := range []string{"Básico", "Intermediário", "Avançado", "exibições"} {
+				if idx := strings.Index(name, marker); idx != -1 {
+					name = strings.TrimSpace(name[:idx])
+					break
+				}
 			}
 
 			// Categorize and add if it looks like a version name
 			isVersion := false
 			if strings.HasSuffix(fullUrl, basePath) || strings.HasSuffix(fullUrl, basePath+"index.html") {
 				isVersion = true
-				if name == "" {
-					name = "Principal"
-				}
+				name = "Principal"
 				principalUrl = fullUrl
 			} else if strings.HasSuffix(fullUrl, "/simplificada.html") || strings.Contains(name, "Simplificada") {
 				isVersion = true
-				if name == "" {
-					name = "Simplificada"
-				}
+				name = "Simplificada"
 				simplifiedUrl = fullUrl
 			} else if strings.HasSuffix(fullUrl, "/teclado.html") || strings.Contains(name, "Teclado") {
 				isVersion = true
-				if name == "" {
-					name = "Teclado"
-				}
+				name = "Teclado"
 				keyboardUrl = fullUrl
-			} else if strings.Contains(fullUrl, "versao-") {
+			} else if strings.Contains(fullUrl, "versao-") || strings.Contains(strings.ToLower(name), "versao") {
 				isVersion = true
-				if name == "" {
-					// Extract version number from URL
+				// Normalize name to "Versão X"
+				if strings.Contains(fullUrl, "versao-") {
 					vParts := strings.Split(fullUrl, "versao-")
 					if len(vParts) > 1 {
 						vNum := strings.TrimSuffix(vParts[1], ".html")
